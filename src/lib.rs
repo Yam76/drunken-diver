@@ -94,7 +94,7 @@ impl std::fmt::Display for Note {
 }
 
 #[derive(PartialEq)]
-pub struct Row<const WIDTH: usize>([Note ; WIDTH]);
+pub struct Row<const WIDTH: usize>([Note ; WIDTH], usize);
 
 impl <const WIDTH: usize> std::fmt::Display for Row<WIDTH> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -111,7 +111,6 @@ impl <const WIDTH: usize> std::fmt::Display for Row<WIDTH> {
 pub struct Dive<T, const WIDTH: usize> {
     iter: T,
     row: Row<WIDTH>,
-    here: usize,
     buffered: Option<(Direction, Style)>,
 }
 
@@ -119,32 +118,23 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> From<T> for Dive<T, WIDTH> {
     fn from(it: T) -> Dive<T, WIDTH> {
         Dive {
             iter: it,
-            row: Row([ Note::Empty ; WIDTH ]),
-            here: WIDTH / 2,
+            row: Row([ Note::Empty ; WIDTH ], WIDTH/2),
             buffered: None,
         }
     }
 }
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
-    fn finalize(&mut self) -> Vec<Row<WIDTH>> {
-        let mut vec = Vec::new();
-        while let Some(row) = self.next() {
-            vec.push(row);
-        }
-        vec
-    }
-
-    fn at_end(&self) -> bool { self.here + 1 >= WIDTH } 
-    fn at_beginning(&self) -> bool { self.here == 0 }
+    fn at_end(&self) -> bool { self.row.1 + 1 >= WIDTH } 
+    fn at_beginning(&self) -> bool { self.row.1 == 0 }
 
     fn settle(&mut self, d: Direction, home: usize) -> Option<Row<WIDTH>> {
         // move one over, wrapping
         // so instead of looking at the next spot, we examine the current spot.
         match d {
-            Direction::Right => if self.at_end() { self.here = 0 } else { self.here += 1 },
+            Direction::Right => if self.at_end() { self.row.1 = 0 } else { self.row.1 += 1 },
             Direction::Left => 
-                if self.at_beginning() { self.here = WIDTH.saturating_sub(1) } else { self.here -= 1 }
+                if self.at_beginning() { self.row.1 = WIDTH.saturating_sub(1) } else { self.row.1 -= 1 }
         }
 
         // examine current location: is it empty? then settle there. Is it at the end? go down. Otherwise,
@@ -152,31 +142,30 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
         let go_down = match d {
             Direction::Right => {
                 loop {
-                    if let Note::Empty = self.row.0[self.here] { break false }
+                    if let Note::Empty = self.row.0[self.row.1] { break false }
                     else if self.at_end() { break true } // end of the line
-                    else { self.here += 1; }
+                    else { self.row.1 += 1; }
                 }
             },
             Direction::Left => {
                 loop {
-                    if let Note::Empty = self.row.0[self.here] { break false }
+                    if let Note::Empty = self.row.0[self.row.1] { break false }
                     else if self.at_beginning() { break true } // end of the line
-                    else { self.here -= 1; }
+                    else { self.row.1 -= 1; }
                 }
             }
         };
 
         if go_down {
-            self.here = home;
-            
-            return Some(std::mem::replace(&mut self.row, Row([Note::Empty; WIDTH])))
+           let tmp = std::mem::replace(&mut self.row, Row([Note::Empty; WIDTH], home));
+           return Some(tmp)
         }
         else { None }
     }
 
     fn go(&mut self, d: Direction, s: Style) -> Option<Row<WIDTH>> {
-        self.row.0[self.here] = Note::Full(d, s);
-        self.settle(d, self.here)
+        self.row.0[self.row.1] = Note::Full(d, s);
+        self.settle(d, self.row.1)
     }
 
 }
@@ -203,11 +192,13 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
                 }
             }
             else {
-                if Row([Note::Empty; WIDTH]) == self.row {
+                if [Note::Empty; WIDTH] == self.row.0 {
                     break None
                 }
                 else {
-                    break Some(std::mem::replace(&mut self.row, Row([Note::Empty; WIDTH])))
+                    let orig = self.row.1;
+                    let tmp = std::mem::replace(&mut self.row, Row([Note::Empty; WIDTH], orig));
+                    break Some(tmp)
                 }
             }
         }
@@ -224,9 +215,9 @@ pub struct Route<const WIDTH: usize> {
 
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> From<Dive<T, WIDTH>> for Route<WIDTH> {
-    fn from(mut it: Dive<T, WIDTH>) -> Route<WIDTH> {
-        let vec = it.finalize(); // TODO: is there a better way to do this?
-        Route{ end: it.here, route: vec }
+    fn from(it: Dive<T, WIDTH>) -> Route<WIDTH> {
+        let vec: Vec<_> = it.collect(); 
+        Route{ end: vec.last().map(|Row(_, v)| *v).unwrap_or(WIDTH/2), route: vec }
     }
 
 }
