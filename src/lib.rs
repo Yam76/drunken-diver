@@ -127,6 +127,14 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> From<T> for Dive<T, WIDTH> {
 }
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
+    fn finalize(&mut self) -> Vec<Row<WIDTH>> {
+        let mut vec = Vec::new();
+        while let Some(row) = self.next() {
+            vec.push(row);
+        }
+        vec
+    }
+
     fn at_end(&self) -> bool { self.here + 1 >= WIDTH } 
     fn at_beginning(&self) -> bool { self.here == 0 }
 
@@ -209,21 +217,27 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
 
 
 
-pub struct Route<const WIDTH: usize>(Vec<Row<WIDTH>>);
+pub struct Route<const WIDTH: usize> {
+    route: Vec<Row<WIDTH>>,
+    end: usize,
+}
+
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> From<Dive<T, WIDTH>> for Route<WIDTH> {
-    fn from(it: Dive<T, WIDTH>) -> Route<WIDTH> {
-        Route(it.collect())
+    fn from(mut it: Dive<T, WIDTH>) -> Route<WIDTH> {
+        let vec = it.finalize(); // TODO: is there a better way to do this?
+        Route{ end: it.here, route: vec }
     }
 
 }
 
 impl <const WIDTH: usize> std::fmt::Display for Route<WIDTH> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for row in &self.0 {
-            write!(f, "{}\n", row)?
+        write!(f, "+{}v{}+\n", "-".repeat((WIDTH/2).saturating_sub(1)), "-".repeat(WIDTH - (WIDTH/2)))?;
+        for row in &self.route {
+            write!(f, "|{}|\n", row)?
         }
-        Ok(())
+        write!(f, "+{}v{}+\n", "-".repeat(self.end), "-".repeat((WIDTH - self.end).saturating_sub(1)))
     }
 }
 
