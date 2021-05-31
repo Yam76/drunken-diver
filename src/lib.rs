@@ -105,16 +105,18 @@ impl <const WIDTH: usize> std::fmt::Display for Row<WIDTH> {
     }
 }
 
-pub struct Dive<T: Iterator<Item=u8>, const WIDTH: usize> {
+// ---
+
+
+pub struct Dive<T, const WIDTH: usize> {
     iter: T,
     row: Row<WIDTH>,
     here: usize,
     buffered: Option<(Direction, Style)>,
 }
 
-impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
-
-    pub fn new(it: T) -> Dive<T, WIDTH> {
+impl <T: Iterator<Item=u8>, const WIDTH: usize> From<T> for Dive<T, WIDTH> {
+    fn from(it: T) -> Dive<T, WIDTH> {
         Dive {
             iter: it,
             row: Row([ Note::Empty ; WIDTH ]),
@@ -122,7 +124,9 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
             buffered: None,
         }
     }
+}
 
+impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
     fn at_end(&self) -> bool { self.here + 1 >= WIDTH } 
     fn at_beginning(&self) -> bool { self.here == 0 }
 
@@ -166,6 +170,7 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
         self.row.0[self.here] = Note::Full(d, s);
         self.settle(d, self.here)
     }
+
 }
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
@@ -202,11 +207,6 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
 
 }
 
-pub trait Diver: Iterator<Item=u8> {
-    fn dive<const WIDTH: usize>(self) -> Dive<Self, WIDTH> where Self: Sized {
-        Dive::new(self)
-    }
-}
 
 
 pub struct Route<const WIDTH: usize>(Vec<Row<WIDTH>>);
