@@ -3,6 +3,8 @@ mod minutiae;
 use minutiae::{Note, Direction, Style, DSPair};
 
 
+/// The `usize` dicatates either where the diver currently is,
+/// or where the diver ended up before deciding to go down
 #[derive(PartialEq)]
 pub struct Row<const WIDTH: usize>([Note ; WIDTH], usize);
 
@@ -27,23 +29,38 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> From<T> for Dive<T, WIDTH> {
     fn from(it: T) -> Dive<T, WIDTH> {
         Dive {
             iter: it,
-            row: Row([ Note::Empty ; WIDTH ], WIDTH/2),
+            row: Row(Dive::<T, WIDTH>::EMPTY_ROW, WIDTH/2),
             buffered: None,
         }
     }
 }
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
-    fn at_end(&self) -> bool { self.row.1 + 1 >= WIDTH } 
-    fn at_beginning(&self) -> bool { self.row.1 == 0 }
+    const EMPTY_ROW: [ Note ; WIDTH] = [ Note::Empty ; WIDTH ];
+
+
+    fn is_rightmost(&self) -> bool { self.row.1 + 1 >= WIDTH } 
+    fn is_leftmost(&self) -> bool { self.row.1 == 0 }
+
+    fn go_rightmost(&mut self) { self.row.1 = WIDTH.saturating_sub(1) }
+    fn go_leftmost(&mut self) { self.row.1 = 0 }
+
+    fn go_right_unchecked(&mut self) { self.row.1 += 1 }
+    fn go_left_unchecked(&mut self) { self.row.1 -= 1 }
+
+    fn go_right_wrapping(&mut self) { 
+        if self.is_rightmost() { self.go_leftmost() } else { self.go_right_unchecked() } 
+    }
+    fn go_left_wrapping(&mut self) {
+        if self.is_leftmost() { self.go_rightmost() } else { self.go_left_unchecked() }
+    }
 
     fn settle(&mut self, d: Direction, home: usize) -> Option<Row<WIDTH>> {
         // move one over, wrapping
         // so instead of looking at the next spot, we examine the current spot.
         match d {
-            Direction::Right => if self.at_end() { self.row.1 = 0 } else { self.row.1 += 1 },
-            Direction::Left => 
-                if self.at_beginning() { self.row.1 = WIDTH.saturating_sub(1) } else { self.row.1 -= 1 }
+            Direction::Right => self.go_right_wrapping(), 
+            Direction::Left => self.go_left_wrapping(),
         }
 
         // examine current location: is it empty? then settle there. Is it at the end? go down. Otherwise,
@@ -52,21 +69,21 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
             Direction::Right => {
                 loop {
                     if let Note::Empty = self.row.0[self.row.1] { break false }
-                    else if self.at_end() { break true } // end of the line
-                    else { self.row.1 += 1; }
+                    else if self.is_rightmost() { break true } // end of the line
+                    else { self.go_right_unchecked(); }
                 }
             },
             Direction::Left => {
                 loop {
                     if let Note::Empty = self.row.0[self.row.1] { break false }
-                    else if self.at_beginning() { break true } // end of the line
-                    else { self.row.1 -= 1; }
+                    else if self.is_leftmost() { break true } // end of the line
+                    else { self.go_left_unchecked(); }
                 }
             }
         };
 
         if go_down {
-           let tmp = std::mem::replace(&mut self.row, Row([Note::Empty; WIDTH], home));
+           let tmp = std::mem::replace(&mut self.row, Row(Dive::<T, WIDTH>::EMPTY_ROW, home));
            return Some(tmp)
         }
         else { None }
@@ -101,12 +118,12 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
                 }
             }
             else {
-                if [Note::Empty; WIDTH] == self.row.0 {
+                if Dive::<T, WIDTH>::EMPTY_ROW == self.row.0 {
                     break None
                 }
                 else {
                     let orig = self.row.1;
-                    let tmp = std::mem::replace(&mut self.row, Row([Note::Empty; WIDTH], orig));
+                    let tmp = std::mem::replace(&mut self.row, Row(Dive::<T, WIDTH>::EMPTY_ROW, orig));
                     break Some(tmp)
                 }
             }
