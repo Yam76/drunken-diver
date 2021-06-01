@@ -21,6 +21,22 @@ impl <const WIDTH: usize> Row<WIDTH> {
     fn get_loc(&self) -> &usize { &self.1 }
 
     fn is_empty(&self) -> bool { self.0 == Row::<WIDTH>::EMPTY_ARR }
+
+    fn is_rightmost(&self) -> bool { self.1 + 1 >= WIDTH } 
+    fn is_leftmost(&self) -> bool { self.1 == 0 }
+
+    fn go_rightmost(&mut self) { self.1 = WIDTH.saturating_sub(1) }
+    fn go_leftmost(&mut self) { self.1 = 0 }
+
+    fn go_right_unchecked(&mut self) { self.1 += 1 }
+    fn go_left_unchecked(&mut self) { self.1 -= 1 }
+
+    fn go_right_wrapping(&mut self) { 
+        if self.is_rightmost() { self.go_leftmost() } else { self.go_right_unchecked() } 
+    }
+    fn go_left_wrapping(&mut self) {
+        if self.is_leftmost() { self.go_rightmost() } else { self.go_left_unchecked() }
+    }
 }
 
 impl <const WIDTH: usize> std::fmt::Display for Row<WIDTH> {
@@ -51,28 +67,13 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> From<T> for Dive<T, WIDTH> {
 }
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
-    fn is_rightmost(&self) -> bool { self.row.1 + 1 >= WIDTH } 
-    fn is_leftmost(&self) -> bool { self.row.1 == 0 }
-
-    fn go_rightmost(&mut self) { self.row.1 = WIDTH.saturating_sub(1) }
-    fn go_leftmost(&mut self) { self.row.1 = 0 }
-
-    fn go_right_unchecked(&mut self) { self.row.1 += 1 }
-    fn go_left_unchecked(&mut self) { self.row.1 -= 1 }
-
-    fn go_right_wrapping(&mut self) { 
-        if self.is_rightmost() { self.go_leftmost() } else { self.go_right_unchecked() } 
-    }
-    fn go_left_wrapping(&mut self) {
-        if self.is_leftmost() { self.go_rightmost() } else { self.go_left_unchecked() }
-    }
 
     fn settle(&mut self, d: Direction, home: usize) -> Option<Row<WIDTH>> {
         // move one over, wrapping
         // so instead of looking at the next spot, we examine the current spot.
         match d {
-            Direction::Right => self.go_right_wrapping(), 
-            Direction::Left => self.go_left_wrapping(),
+            Direction::Right => self.row.go_right_wrapping(), 
+            Direction::Left => self.row.go_left_wrapping(),
         }
 
         // examine current location: is it empty? then settle there. Is it at the end? go down. Otherwise,
@@ -81,15 +82,15 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
             Direction::Right => {
                 loop {
                     if self.row.is_note_empty() { break false }
-                    else if self.is_rightmost() { break true } // end of the line
-                    else { self.go_right_unchecked(); }
+                    else if self.row.is_rightmost() { break true } // end of the line
+                    else { self.row.go_right_unchecked(); }
                 }
             },
             Direction::Left => {
                 loop {
                     if self.row.is_note_empty() { break false }
-                    else if self.is_leftmost() { break true } // end of the line
-                    else { self.go_left_unchecked(); }
+                    else if self.row.is_leftmost() { break true } // end of the line
+                    else { self.row.go_left_unchecked(); }
                 }
             }
         };
@@ -120,7 +121,6 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
             }
         }
 
-
         if let Some((d, s)) = self.buffered.take() {
             go_and_return_on_descent!(d, s)
         }
@@ -136,9 +136,7 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
             let tmp = std::mem::replace(&mut self.row, Row::new(orig));
             return Some(tmp)
         }
-
     }
-
 }
 
 
