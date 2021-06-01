@@ -13,4 +13,7 @@ fn main() {
 
     let s = b"2062f80093066633876b542212c496501a5e79523cc4ea9b28667dff065afd8f".into_iter();
     println!("{}", Route::<32>::from(Dive::from(s.map(|x| *x))));
+
+    let s = b"\x01\x23\x45\x67\x89\xAB\xCD\xEF".into_iter();
+    println!("{}", Route::<32>::from(Dive::from(s.map(|x| *x))));
 }

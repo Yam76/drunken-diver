@@ -77,8 +77,8 @@ impl std::fmt::Display for Note {
             Note::Full(Direction::Right, Style::Style3) => 'o',
             Note::Full(Direction::Right, Style::Style4) => 'x',
             Note::Full(Direction::Right, Style::Style5) => ')',
-            Note::Full(Direction::Right, Style::Style6) => 'p',
-            Note::Full(Direction::Right, Style::Style7) => 'b',
+            Note::Full(Direction::Right, Style::Style6) => '+',
+            Note::Full(Direction::Right, Style::Style7) => 'U',
 
             Note::Full(Direction::Left, Style::Style0) => '<',
             Note::Full(Direction::Left, Style::Style1) => '~',
@@ -86,8 +86,8 @@ impl std::fmt::Display for Note {
             Note::Full(Direction::Left, Style::Style3) => '_',
             Note::Full(Direction::Left, Style::Style4) => '!',
             Note::Full(Direction::Left, Style::Style5) => '(',
-            Note::Full(Direction::Left, Style::Style6) => 'q',
-            Note::Full(Direction::Left, Style::Style7) => 'd',
+            Note::Full(Direction::Left, Style::Style6) => 'T',
+            Note::Full(Direction::Left, Style::Style7) => 'A',
         };
         write!(f, "{}", c)
     }
