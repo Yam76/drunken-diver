@@ -105,14 +105,13 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
         self.row.set_note(Note::Full(d, s));
         self.settle(d, *self.row.get_loc())
     }
-
 }
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
     type Item = Row<WIDTH>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        macro_rules! go_return {
+        macro_rules! go_and_return_on_descent {
             ($direction:ident, $style:ident $(,  $b:block)?) => {
                 if let Some(row) = self.go($direction, $style) {
                     $($b)?
@@ -123,15 +122,13 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
 
 
         if let Some((d, s)) = self.buffered.take() {
-            go_return!(d, s)
+            go_and_return_on_descent!(d, s)
         }
 
         while let Some(byte) = self.iter.next() {
                 let DSPair([(d1, s1), (d2, s2)]) = DSPair::from(byte);
-                go_return!(d1, s1, 
-                           {self.buffered = Some((d2, s2));} 
-                           );
-                go_return!(d2, s2)
+                go_and_return_on_descent!(d1, s1, { self.buffered = Some((d2, s2)); });
+                go_and_return_on_descent!(d2, s2)
         }
         if self.row.is_empty() { return None }
         else {
