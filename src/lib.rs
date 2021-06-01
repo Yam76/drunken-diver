@@ -3,14 +3,17 @@ mod minutiae;
 use minutiae::{Note, Direction, Style, DSPair};
 
 
-/// The `usize` dicatates either where the diver currently is,
-/// or where the diver ended up before deciding to go down
+/// A row of `Note`s, with either the current position of the diver
+/// or the diver's position when it left the row.
 ///
-/// Note: `usize` should be within `0` and `WIDTH`
+// `usize` should be within `0` and `WIDTH`.
+// We consider `0` to the be the leftmost, and `WIDTH` to the be the rightmost.
 #[derive(PartialEq)]
 pub struct Row<const WIDTH: usize>([Note ; WIDTH], usize);
 
 impl <const WIDTH: usize> Row<WIDTH> {
+    // NB: We consider `0` to be the leftmost position and `WIDTH` to be the rightmost position.
+
     const EMPTY_ARR: [ Note ; WIDTH ] = [ Note::Empty ; WIDTH ];
 
     fn new(loc: usize) -> Row<WIDTH> { Row(Row::<WIDTH>::EMPTY_ARR, loc) }
@@ -18,6 +21,7 @@ impl <const WIDTH: usize> Row<WIDTH> {
     fn set_note(&mut self, note: Note) { self.0[self.1] = note; }
     fn is_note_empty(&self) -> bool { self.0[self.1] == Note::Empty }
 
+    // Get the location of the diver or where it left the row.
     fn get_loc(&self) -> &usize { &self.1 }
 
     fn is_empty(&self) -> bool { self.0 == Row::<WIDTH>::EMPTY_ARR }
@@ -37,7 +41,50 @@ impl <const WIDTH: usize> Row<WIDTH> {
     fn go_left_wrapping(&mut self) {
         if self.is_leftmost() { self.go_rightmost() } else { self.go_left_unchecked() }
     }
+
+    // NB: The goal of `WIDTH/8` is to increase the margin size
+    // e.g. with `0..0`, we get
+    // |<
+    // |<
+    // |<
+    // etc.
+    //
+    // while with `WIDTH/8` we increase the minimum of the sum 
+    // of the margins of both sides in proportion to the width
+    // of the route. Note that `8` is a magic number,
+    // but it is meant to strike a balance between `4`
+    // which seems to allow notes to easily encompass the center of
+    // the route, and `16` which seems a little too small.
+    fn journey_right(&mut self) -> bool {
+        // examine the current location. Is it empty? Then settle there.
+        // Otherwise, go to the right, wrapping.
+        for _ in 0..(WIDTH/8) {
+            if self.is_note_empty() { return false }
+            else { self.go_right_wrapping() }
+        }
+        // examine the current location. Is it empty? Then settle there.
+        // Is it at the end? Then go down a row from before you started the journey.
+        // Otherwise, go right.
+        loop {
+            if self.is_note_empty() { return false }
+            else if self.is_rightmost() { return true } // end of the line
+            else { self.go_right_unchecked(); }
+        }
+    }
+
+    fn journey_left(&mut self) -> bool {
+        for _ in 0..(WIDTH/8) {
+            if self.is_note_empty() { return false }
+            else { self.go_left_wrapping() }
+        }
+        loop {
+            if self.is_note_empty() { return false }
+            else if self.is_leftmost() { return true } // end of the line
+            else { self.go_left_unchecked(); }
+        }
+    }
 }
+
 
 impl <const WIDTH: usize> std::fmt::Display for Row<WIDTH> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,30 +116,9 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> From<T> for Dive<T, WIDTH> {
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
 
     fn settle(&mut self, d: Direction, home: usize) -> Option<Row<WIDTH>> {
-        // move one over, wrapping
-        // so instead of looking at the next spot, we examine the current spot.
-        match d {
-            Direction::Right => self.row.go_right_wrapping(), 
-            Direction::Left => self.row.go_left_wrapping(),
-        }
-
-        // examine current location: is it empty? then settle there. Is it at the end? go down. Otherwise,
-        // go in direction `d` and repeat.
         let go_down = match d {
-            Direction::Right => {
-                loop {
-                    if self.row.is_note_empty() { break false }
-                    else if self.row.is_rightmost() { break true } // end of the line
-                    else { self.row.go_right_unchecked(); }
-                }
-            },
-            Direction::Left => {
-                loop {
-                    if self.row.is_note_empty() { break false }
-                    else if self.row.is_leftmost() { break true } // end of the line
-                    else { self.row.go_left_unchecked(); }
-                }
-            }
+            Direction::Right => { self.row.journey_right() },
+            Direction::Left => { self.row.journey_left() }
         };
 
         if go_down {
