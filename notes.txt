@@ -1,0 +1,15 @@
+invariant: `here` is always over an empty cell.
+
+>.*ox)]} - right
+
+<~=_!([{ - left
+
+algorithm:
+place the character into the cell.
+try to go to the next cell (wrapping).
+if you can't, repeat:
+	try to go to the next cell. if you hit the end,
+	instead go below your beginning position.
+
+iterator, pretty iterator...
+
