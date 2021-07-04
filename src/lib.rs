@@ -1,3 +1,4 @@
+// This file implements the main algorithm.
 
 mod minutiae;
 use minutiae::{Note, Direction, Style, DSPair};
@@ -88,15 +89,13 @@ impl <const WIDTH: usize> Row<WIDTH> {
 
 impl <const WIDTH: usize> std::fmt::Display for Row<WIDTH> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for note in self.0.iter() {
-            write!(f, "{}", note)?;
-        }
+        for note in self.0.iter() { write!(f, "{}", note)? }
         Ok(())
     }
 }
 
 
-
+/// An iterator over the rows a diver descends through.
 pub struct Dive<T, const WIDTH: usize> {
     iter: T,
     row: Row<WIDTH>,
@@ -122,12 +121,29 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
         };
 
         if go_down {
-           let tmp = std::mem::replace(&mut self.row, Row::new(home));
-           return Some(tmp)
+           return Some(std::mem::replace(&mut self.row, Row::new(home)))
         }
         else { None }
     }
 
+    /// When the diver decides to `go`, it first leaves behind
+    /// a `Note` at that location detailing the `Direction` `d` it went.
+    /// The `Note` has a `Style`.
+    ///
+    /// Let `home` be the starting position of the diver.
+    /// Repeat WIDTH/2 times:
+    ///     The diver goes one space in direction `d`,
+    ///     wrapping to the other side of the row if necessary.
+    ///     Then, if the space is empty, return `None`,
+    ///     as the diver did not go down a row.
+    /// Repeat:
+    ///     If going one space in direction `d` would put the diver
+    ///     past the edges of the row,
+    ///     create a new row with the diver starting at `home`,
+    ///     then return the old row.
+    ///     Otherwise, the diver goes one space in direction `d`.
+    ///     If the space is empty, return `None`.
+    ///     
     fn go(&mut self, d: Direction, s: Style) -> Option<Row<WIDTH>> {
         self.row.set_note(Note::Full(d, s));
         self.settle(d, *self.row.get_loc())
@@ -137,6 +153,17 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
     type Item = Row<WIDTH>;
 
+    /// `go` on the buffer if a value is present.
+    /// If the diver descends, return the obtained row.
+    /// 
+    /// Repeat:
+    ///     Retrieve the next value in `iter`.
+    ///     Process the `u8`  into two `u4`'s, which convert to
+    ///     two tuples of `Direction` and `Style`.
+    ///     `go` on the first tuple. If the diver descends, buffer the second tuple
+    ///     and return the obtained row.
+    ///     Otherwise, `go`on the second tuple. If the diver descends,
+    ///     return the obtained row.
     fn next(&mut self) -> Option<Self::Item> {
         macro_rules! go_and_return_on_descent {
             ($direction:ident, $style:ident $(,  $b:block)?) => {
@@ -159,14 +186,15 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Iterator for Dive<T, WIDTH> {
         if self.row.is_empty() { return None }
         else {
             let orig = *self.row.get_loc();
-            let tmp = std::mem::replace(&mut self.row, Row::new(orig));
-            return Some(tmp)
+            return Some(std::mem::replace(&mut self.row, Row::new(orig)))
         }
     }
 }
 
 
-
+/// A completed route the diver took.
+///
+/// This is the main way to print the art the diver generates.
 pub struct Route<const WIDTH: usize> {
     route: Vec<Row<WIDTH>>,
     end: usize,

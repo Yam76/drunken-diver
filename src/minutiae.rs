@@ -1,3 +1,5 @@
+/// This struct preserves only the last
+/// 3 bits of a `u8`: 0x----_-aaa
 #[derive(Clone, Copy, Debug)]
 struct U3(u8);
 
@@ -50,7 +52,7 @@ impl From<u8> for DSPair {
         DSPair([
             (
                 Direction::from(byte & 0b1 == 0), // 0bxxxx_xxxY
-                Style::from(U3::from((byte >> 1) & 0b111)), // 0xxxx_YYYx
+                Style::from(U3::from((byte >> 1) & 0b111)), // 0bxxxx_YYYx
                 ),
             (
                 Direction::from(((byte >> 4) & 0b1) == 0), // 0bxxxY_xxxx
