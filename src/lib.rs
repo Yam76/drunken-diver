@@ -3,19 +3,41 @@
 mod minutiae;
 use minutiae::{Note, Direction, Style, DSPair};
 
+/// The mental model of this library one should have
+/// is that of a drunken diver descending into the depths of the ocean
+/// while leaving behind a trail of notes 
+/// each with a stylized depiction of a direction (left or right), 
+/// allowing those that come afterwards to swim the same path the diver took.
 
-/// A row of `Note`s, with either the current position of the diver
-/// or the diver's position when it left the row.
+
+/// A row of `Note`s.
+/// If the diver is in this row, it contains
+/// the current position of the diver.
+/// Otherwise, it contains the diver's position when it left the row.
 ///
 // `usize` should be within `0` and `WIDTH`.
-// We consider `0` to the be the leftmost, and `WIDTH` to the be the rightmost.
+// NB: We consider `0` to be the leftmost position and `WIDTH` to be the rightmost position.
 #[derive(PartialEq)]
 pub struct Row<const WIDTH: usize>([Note ; WIDTH], usize);
 
 impl <const WIDTH: usize> Row<WIDTH> {
-    // NB: We consider `0` to be the leftmost position and `WIDTH` to be the rightmost position.
 
     const EMPTY_ARR: [ Note ; WIDTH ] = [ Note::Empty ; WIDTH ];
+    
+    // NB: The goal of `WIDTH/8` is to increase the margin size
+    // e.g. with `0..0`, we get
+    // |<
+    // |<
+    // |<
+    // etc.
+    //
+    // while with `WIDTH/8` we increase the minimum of the sum 
+    // of the margins of both sides in proportion to the width
+    // of the route. Note that `8` is a magic number,
+    // but it is meant to strike a balance between `4`
+    // which seems to allow notes to easily encompass the center of
+    // the route, and `16` which seems a little too small.
+    const MIN_MARGIN: usize = WIDTH/8;
 
     fn new(loc: usize) -> Row<WIDTH> { Row(Row::<WIDTH>::EMPTY_ARR, loc) }
 
@@ -28,7 +50,7 @@ impl <const WIDTH: usize> Row<WIDTH> {
     fn is_empty(&self) -> bool { self.0 == Row::<WIDTH>::EMPTY_ARR }
 
     fn is_rightmost(&self) -> bool { self.1 + 1 >= WIDTH } 
-    fn is_leftmost(&self) -> bool { self.1 == 0 }
+    fn is_leftmost(&self) -> bool { self.1 <= 0 }
 
     fn go_rightmost(&mut self) { self.1 = WIDTH.saturating_sub(1) }
     fn go_leftmost(&mut self) { self.1 = 0 }
@@ -43,23 +65,14 @@ impl <const WIDTH: usize> Row<WIDTH> {
         if self.is_leftmost() { self.go_rightmost() } else { self.go_left_unchecked() }
     }
 
-    // NB: The goal of `WIDTH/8` is to increase the margin size
-    // e.g. with `0..0`, we get
-    // |<
-    // |<
-    // |<
-    // etc.
-    //
-    // while with `WIDTH/8` we increase the minimum of the sum 
-    // of the margins of both sides in proportion to the width
-    // of the route. Note that `8` is a magic number,
-    // but it is meant to strike a balance between `4`
-    // which seems to allow notes to easily encompass the center of
-    // the route, and `16` which seems a little too small.
+    /// Moves the diver rightward.
+    /// Returns whether the diver should go down to a new row.
+    /// true - yes, the diver should go down
+    /// false - no, the diver shouldn't go down
     fn journey_right(&mut self) -> bool {
         // examine the current location. Is it empty? Then settle there.
         // Otherwise, go to the right, wrapping.
-        for _ in 0..(WIDTH/8) {
+        for _ in 0..Row::<WIDTH>::MIN_MARGIN {
             if self.is_note_empty() { return false }
             else { self.go_right_wrapping() }
         }
@@ -73,8 +86,9 @@ impl <const WIDTH: usize> Row<WIDTH> {
         }
     }
 
+    /// See `journey_right`.
     fn journey_left(&mut self) -> bool {
-        for _ in 0..(WIDTH/8) {
+        for _ in 0..Row::<WIDTH>::MIN_MARGIN {
             if self.is_note_empty() { return false }
             else { self.go_left_wrapping() }
         }
@@ -114,6 +128,10 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> From<T> for Dive<T, WIDTH> {
 
 impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
 
+    /// Makes the diver move towards a direction, eventually settling.
+    ///
+    /// Returns None if the diver stayed on the same row.
+    /// Returns the old row if the diver left the row.
     fn settle(&mut self, d: Direction, home: usize) -> Option<Row<WIDTH>> {
         let go_down = match d {
             Direction::Right => { self.row.journey_right() },
@@ -131,7 +149,7 @@ impl <T: Iterator<Item=u8>, const WIDTH: usize> Dive<T, WIDTH> {
     /// The `Note` has a `Style`.
     ///
     /// Let `home` be the starting position of the diver.
-    /// Repeat WIDTH/2 times:
+    /// Repeat MIN_MARGIN times:
     ///     The diver goes one space in direction `d`,
     ///     wrapping to the other side of the row if necessary.
     ///     Then, if the space is empty, return `None`,
