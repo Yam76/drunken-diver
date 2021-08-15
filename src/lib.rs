@@ -1,13 +1,17 @@
+/*! The mental model of this library one should have
+  is that of a drunken diver descending into the depths of the ocean
+  while leaving behind a trail of notes 
+  each with a stylized depiction of a direction (left or right), 
+  allowing those that come afterwards to swim the same path the diver took.
+
+  Please see the examples directory for examples.
+  */
+
 // This file implements the main algorithm.
 
 mod minutiae;
 use minutiae::{Note, Direction, Style, DSPair};
 
-/// The mental model of this library one should have
-/// is that of a drunken diver descending into the depths of the ocean
-/// while leaving behind a trail of notes 
-/// each with a stylized depiction of a direction (left or right), 
-/// allowing those that come afterwards to swim the same path the diver took.
 
 
 /// A row of `Note`s.
