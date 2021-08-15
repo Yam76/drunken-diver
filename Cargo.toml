@@ -3,6 +3,9 @@ name = "drunken-diver"
 version = "0.1.0"
 authors = ["Andrew Yan"]
 edition = "2018"
+license = "MPL-2.0"
+repository = "https://github.com/Yam76/drunken-diver"
+description = "Implements an algorithm inspired by the Drunken Bishop algorithm"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
