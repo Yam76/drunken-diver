@@ -10,7 +10,7 @@ algorithm aims to map each byte sequence to a unique piece of art.
 # SECURITY ADVISORY
 
 I have not completely vetted this library to ensure the implementation
-correctly generates unique sequences. Use this library at your own risk.
+correctly maps input to unique sequences. Use this library at your own risk.
 
 
 
